@@ -20,11 +20,11 @@ def _normalize(X: np.ndarray) -> np.ndarray:
 
 def _dense_search(query: str, k: int, emb_model: str) -> List[Tuple[int, float]]:
     if not VEC_PATH.exists():
-        raise FileNotFoundError(f"FAISS-Index fehlt: {VEC_PATH}")
+        raise FileNotFoundError(f"FAISS index missing: {VEC_PATH}")
     index = faiss.read_index(str(VEC_PATH))
     q = embed_texts_ollama([query], model=emb_model)
     q = _normalize(q)
-    D, I = index.search(q, k)  # I: FAISS labels (doc_id_i), D: scores (IP ~ Cosine)
+    D, I = index.search(q, k)  # I: FAISS labels (doc_id_i), D: scores (IP ~ cosine)
     out = []
     for lbl, s in zip(I[0], D[0]):
         if lbl == -1:
@@ -35,7 +35,7 @@ def _dense_search(query: str, k: int, emb_model: str) -> List[Tuple[int, float]]
 
 def _sparse_search(query: str, k: int) -> List[Tuple[int, float]]:
     if not DB_PATH.exists():
-        raise FileNotFoundError(f"SQLite-DB fehlt: {DB_PATH}")
+        raise FileNotFoundError(f"SQLite DB missing: {DB_PATH}")
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
     try:
@@ -113,7 +113,7 @@ def hybrid_search(query: str, k: int = 20, emb_model: str = "bge-m3:567m"):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Hybrid-Suche (FAISS + SQLite FTS5) mit RRF"
+        description="Hybrid search (FAISS + SQLite FTS5) with RRF"
     )
     ap.add_argument("--q", required=True)
     ap.add_argument("--k", type=int, default=20)

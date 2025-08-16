@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import base64, mimetypes, os, time
 
-load_dotenv()  # lädt OPENAI_API_KEY aus .env
+load_dotenv()  # load OPENAI_API_KEY from .env
 
 
 class OpenAIError(RuntimeError):
@@ -27,7 +27,7 @@ def _build_user_content(
 ) -> List[Dict[str, Any]]:
     parts: List[Dict[str, Any]] = [{"type": "input_text", "text": user_text}]
     for p in image_paths or []:
-        # Base64-Data-URL direkt im Input — von den OpenAI-Dokus gestützt
+        # Base64 data URL in input (per OpenAI docs)
         parts.append({"type": "input_image", "image_url": _to_data_url(p)})
     return parts
 
@@ -42,8 +42,8 @@ def responses_parse_structured(
     timeout_s: int = 300,
 ) -> Tuple[BaseModel, Dict[str, Any]]:
     """
-    Structured Outputs via client.responses.parse(..., text_format=pyd_model)
-    Gibt (parsed_object, meta) zurück.
+    Structured Outputs via client.responses.parse(..., text_format=pyd_model).
+    Returns (parsed_object, meta).
     """
     try:
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=timeout_s)
@@ -70,7 +70,7 @@ def responses_parse_structured(
     if parsed is None:
         raise OpenAIError("output_parsed fehlt / konnte nicht geparst werden")
 
-    # Token-/Nutzungsdaten (wenn vorhanden)
+    # Token/usage data (if available)
     d = getattr(resp, "to_dict", lambda: {})()
     usage = d.get("usage", {}) if isinstance(d, dict) else {}
     meta = {

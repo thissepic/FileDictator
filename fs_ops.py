@@ -52,7 +52,7 @@ def append_log(logfile: Path, record: dict) -> None:
 
 def load_processed_hashes(logfile: Path) -> set[str]:
     """
-    Nutzt processed.jsonl *ohne* Dry-Run-Einträge zur Idempotenz (nur echte Moves/Copies).
+    Parse processed.jsonl without dry-run entries for idempotency (only real moves/copies).
     """
     if not logfile.exists():
         return set()

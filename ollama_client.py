@@ -19,8 +19,8 @@ def chat_structured(
     extra_options: dict | None = None,
 ) -> Tuple[str, dict]:
     """
-    Aufruf über die offizielle ollama-Python-Library (kein RAW).
-    Gibt (content, meta) zurück, wobei meta die Metriken enthält, soweit verfügbar.
+    Call via official ollama Python library (non-RAW).
+    Returns (content, meta) with metrics where available.
     """
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system},
@@ -43,7 +43,7 @@ def chat_structured(
         resp = ollama.chat(model=model, messages=messages, **kwargs)
     except Exception as e:
         raise OllamaError(f"Ollama chat() fehlgeschlagen: {e}") from e
-    # Content extrahieren
+    # Extract content
     content = ""
     if isinstance(resp, dict):
         content = (resp.get("message", {}) or {}).get("content", "") or ""
@@ -52,7 +52,7 @@ def chat_structured(
     if not content:
         raise OllamaError("Leere Modellantwort erhalten.")
 
-    # Relevante Metriken/Meta (optional vorhanden)
+    # Relevant metrics/meta (optional)
     keys = [
         "model",
         "created_at",

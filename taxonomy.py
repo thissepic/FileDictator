@@ -8,16 +8,16 @@ def list_leaf_paths(lib_root: Path) -> list[str]:
     allowed = []
     for p in lib_root.rglob("*"):
         if p.is_dir():
-            # Leaf = kein Unterordner
+            # Leaf = has no subdirectories
             try:
                 if not any(child.is_dir() for child in p.iterdir()):
                     rel = str(p.relative_to(lib_root)).replace("\\", "/")
-                    # versteckte & leere Pfadteile meiden
+                    # skip hidden/empty path parts
                     if rel and not any(part.startswith(".") for part in rel.split("/")):
                         allowed.append(rel)
             except PermissionError:
                 continue
-    # Review-Ordner sicherstellen
+    # ensure review folder exists and is allowed
     review = lib_root / REVIEW_FOLDER
     review.mkdir(parents=True, exist_ok=True)
     if REVIEW_FOLDER not in allowed:

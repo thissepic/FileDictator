@@ -7,26 +7,26 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 
-# --- Euer bestehendes Projekt ---
-# Sortieren / Klassifizieren
+# --- Project modules ---
+# Sorting / classification
 from taxonomy import list_leaf_paths, build_schema
 from ingest import is_supported_file, ingest_file
-from classify import classify_item  # ruft Tags + Index-Update bereits auf
+from classify import classify_item  # calls Tags + Index-Update
 
-# Suche (Hybrid)
+# Search (hybrid)
 from hybrid_search import hybrid_search
 
 app = FastAPI()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 # -----------------------
-# FESTE KONFIGURATION
+# Fixed configuration
 # -----------------------
 PROVIDER_DEFAULT = "ollama"  # "ollama" | "openai"
-MODEL_OLLAMA = "qwen2.5vl:32b"
-MODEL_OPENAI = "gpt-5-mini-2025-08-07"  # bei Bedarf anpassen
+MODEL_OLLAMA = "gemma3:27b"
+MODEL_OPENAI = "gpt-5-mini-2025-08-07"  # adjust if needed
 MIN_CONFIDENCE = 0.6
-KEEP_ALIVE = "10m"  # nur Ollama
+KEEP_ALIVE = "10m"  # only Ollama
 ACTION_DEFAULT = "move"  # "move" | "copy"
 DRY_RUN_DEFAULT = False
 
@@ -39,7 +39,7 @@ def home(request: Request):
         "index.html",
         {
             "request": request,
-            # Infos für die UI (read-only Hinweise)
+            # Info for UI (read-only hints)
             "cfg": {
                 "MODEL_OLLAMA": MODEL_OLLAMA,
                 "MODEL_OPENAI": MODEL_OPENAI,
@@ -54,7 +54,7 @@ def home(request: Request):
     )
 
 
-# --- Dateien sortieren ---
+# --- Sort files ---
 @app.post("/sort/run", response_class=HTMLResponse)
 def sort_run(
     request: Request,
@@ -76,7 +76,7 @@ def sort_run(
             {"request": request, "sort_error": f"LIBROOT nicht gefunden: {lib_p}"},
         )
 
-    # Allowed leaf paths & JSON-Schema
+    # Allowed leaf paths & JSON schema
     allowed = list_leaf_paths(lib_p)
     schema = build_schema(allowed)
 
@@ -92,12 +92,12 @@ def sort_run(
                 lib_root=lib_p,
                 allowed_paths=allowed,
                 schema=schema,
-                provider=provider,  # nur Switch
-                min_confidence=MIN_CONFIDENCE,  # fest
-                action=ACTION_DEFAULT,  # fest
-                model=model,  # fest je Provider
-                keep_alive=KEEP_ALIVE,  # fest (nur Ollama relevant)
-                dry_run=DRY_RUN_DEFAULT,  # fest
+                provider=provider,  # switch only
+                min_confidence=MIN_CONFIDENCE,  # fixed
+                action=ACTION_DEFAULT,  # fixed
+                model=model,  # fixed per provider
+                keep_alive=KEEP_ALIVE,  # fixed (Ollama only)
+                dry_run=DRY_RUN_DEFAULT,  # fixed
             )
             processed += 1
             logs.append(f"[ok] {p.name} -> {dst}")
@@ -111,7 +111,7 @@ def sort_run(
     )
 
 
-# --- Dateien finden (Hybrid-Suche) ---
+# --- Search files (hybrid search) ---
 @app.post("/search/run", response_class=HTMLResponse)
 def search_run(
     request: Request,
@@ -119,7 +119,7 @@ def search_run(
     k: Annotated[int, Form()] = 20,
 ):
     try:
-        results = hybrid_search(q, k=k, emb_model=EMB_MODEL)  # festes Embedding-Modell
+        results = hybrid_search(q, k=k, emb_model=EMB_MODEL)  # fixed embedding model
     except Exception as ex:
         return templates.TemplateResponse(
             "_partials.html",

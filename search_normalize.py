@@ -15,7 +15,7 @@ REV_MAP = {"ae": ["ä", "a"], "oe": ["ö", "o"], "ue": ["ü", "u"], "ss": ["ß",
 
 def de_variants(token: str) -> set[str]:
     vars = {token}
-    # 1) Umlaute → {basis, digraph}
+    # 1) Umlauts → {base, digraph}
     for i, ch in enumerate(token):
         if ch in DE_MAP:
             new = set()
@@ -23,7 +23,7 @@ def de_variants(token: str) -> set[str]:
                 for rep in DE_MAP[ch]:
                     new.add(v[:i] + rep + v[i + 1 :])
             vars |= new
-    # 2) Digraphs → {mit Umlaut, basis}
+    # 2) Digraphs → {with umlaut, base}
     for s, reps in REV_MAP.items():
         if s in token.lower():
             new = set()
@@ -42,7 +42,7 @@ def de_variants(token: str) -> set[str]:
 
 
 def expand_fts_query(q: str, for_prefix=True) -> str:
-    # Split grosszügig in "Tokens"
+    # Liberal token split
     toks = re.findall(r"[A-Za-zÀ-ÿ0-9_+-]+", q)
     if not toks:
         return q
@@ -50,6 +50,6 @@ def expand_fts_query(q: str, for_prefix=True) -> str:
     for t in toks:
         vs = de_variants(t)
         if for_prefix and len(t) >= 4:
-            vs = {v + "*" for v in vs}  # Prefixsuche beschleunigt durch prefix='2 3 4'
+            vs = {v + "*" for v in vs}  # prefix search accelerated via prefix='2 3 4'
         parts.append("(" + " OR ".join(sorted(vs)) + ")")
     return " AND ".join(parts)

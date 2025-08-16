@@ -152,6 +152,17 @@ Duplicate detection: with `--action copy`, already processed files (by content h
 
 ---
 
+## 🗣️ Prompts
+
+`prompts.py` defines the `SYSTEM_PROMPT` and `build_user_prompt` used for classification.
+
+* The default is tailored to German users and a school‑like folder taxonomy.
+* Adapt both prompts to your specific use case and your users’ language (e.g., English, multilingual).
+* Ensure the instructions reflect your allowed target folders and that the expected output language (tags, caption, reason) is clear.
+* Keep the output strictly aligned with the schema (target_path, confidence, reason, tags, caption).
+
+---
+
 ## 🔐 Security & Privacy
 
 * Models can **only write to allowed paths** (no free-form paths)

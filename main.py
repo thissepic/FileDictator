@@ -78,7 +78,7 @@ def run_once(
 
 def parse_args():
     ap = argparse.ArgumentParser(
-        description="Dokumente (Bild/Word/ODT) einsortieren - wahlweise via Ollama oder OpenAI (Structured Outputs)."
+        description="Sort documents (image/Word/ODT) via Ollama or OpenAI (Structured Outputs)."
     )
     ap.add_argument("--inbox", type=Path, required=True)
     ap.add_argument("--libroot", type=Path, required=True)
@@ -86,13 +86,13 @@ def parse_args():
         "--provider",
         choices=["ollama", "openai"],
         default="ollama",
-        help="LLM-Backend wählen",
+        help="Choose LLM backend",
     )
     ap.add_argument(
         "--model",
         type=str,
         default="qwen2.5vl:32b",
-        help="Modellname (bei provider=openai z. B. gpt-4o-mini / gpt-5)",
+        help="Model name (for provider=openai e.g., gpt-4o-mini / gpt-5)",
     )
     ap.add_argument("--min-confidence", type=float, default=0.6)
     ap.add_argument("--action", choices=["move", "copy"], default="move")
@@ -100,7 +100,7 @@ def parse_args():
         "--keep-alive",
         type=str,
         default="2h",
-        help='Nur für Ollama relevant (z. B. "10m", "2h", "-1")',
+        help='Ollama only (e.g., "10m", "2h", "-1")',
     )
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--watch", action="store_true")
@@ -119,7 +119,7 @@ def watch_mode(
     dry_run: bool,
     interval: float = 3.0,
 ):
-    print(f"[watch] Beobachte {inbox} (Intervall {interval}s) …  Abbruch: Ctrl+C")
+    print(f"[watch] Watching {inbox} (interval {interval}s) …  Stop: Ctrl+C")
     seen = set()
     while True:
         try:
@@ -140,7 +140,7 @@ def watch_mode(
                     )
                     seen.add(p)
         except KeyboardInterrupt:
-            print("\n[watch] beendet.")
+            print("\n[watch] stopped.")
             return
         except Exception as e:
             print(f"[watch][warn] {e}")

@@ -11,6 +11,7 @@ import fitz
 from pptx import Presentation
 from charset_normalizer import from_bytes
 
+# Supported extensions for ingestion
 SUPPORTED_EXTS = {
     ".jpg",
     ".jpeg",
@@ -25,7 +26,7 @@ SUPPORTED_EXTS = {
 }
 MAX_TEXT_CHARS = 20000
 MAX_IMAGES = 3
-MAX_IMAGE_DIMENSION = 1024  # Maximale Bilddimension in Pixeln
+MAX_IMAGE_DIMENSION = 1024  # max image dimension (pixels)
 PDF_RASTER_DPI = 200
 
 
@@ -40,10 +41,10 @@ def _truncate(text: str, limit: int = MAX_TEXT_CHARS) -> str:
 
 def _read_text_safely(path: Path) -> str:
     """
-    Liest Bytes und versucht:
-      1) UTF-8-SIG (BOM wird entfernt),
+    Read bytes and try, in order:
+      1) UTF-8-SIG (removes BOM),
       2) charset-normalizer (best guess),
-      3) latin-1 (verlustfrei, nie DecodeError).
+      3) latin-1 (lossless, never raises DecodeError).
     """
     data = path.read_bytes()
     # 1) Bevorzugt UTF-8 (mit/ohne BOM)
@@ -65,7 +66,7 @@ def _read_text_safely(path: Path) -> str:
 
 
 def ingest_image(path: Path) -> Tuple[str, List[str], callable]:
-    # Bild auf maximal MAX_IMAGE_DIMENSION skalieren und an das Modell geben
+    # Resize to MAX_IMAGE_DIMENSION and pass to the model
     resized_paths, cleanup = resize_images_batch(
         [str(path)], max_dimension=MAX_IMAGE_DIMENSION
     )
@@ -79,19 +80,19 @@ def ingest_txt(path: Path) -> Tuple[str, List[str], Callable]:
 
 
 def ingest_docx(path: Path) -> Tuple[str, List[str], callable]:
-    # Bilder via docx2txt in temp-Verzeichnis extrahieren
+    # Extract images via docx2txt into a temp directory
     tmpdir_obj = tempfile.TemporaryDirectory(prefix="docsort_docx_")
     tmpdir = tmpdir_obj.name
     text = docx2txt.process(str(path), tmpdir)
     images = sorted(Path(tmpdir).glob("*"))
     img_paths = [str(p) for p in images[:MAX_IMAGES]]
 
-    # Extrahierte Bilder skalieren
+    # Resize extracted images
     resized_paths, resize_cleanup = resize_images_batch(
         img_paths, max_dimension=MAX_IMAGE_DIMENSION
     )
 
-    # Kombinierte Cleanup-Funktion
+    # Combined cleanup
     def combined_cleanup():
         try:
             resize_cleanup()
@@ -113,7 +114,7 @@ def ingest_via_unstructured(path: Path) -> Tuple[str, List[str], callable]:
 
 def ingest_pdf(path: Path) -> Tuple[str, List[str], Callable]:
     """
-    Extrahiert Text mit PyMuPDF und rastert die ersten N Seiten (MAX_IMAGES) in PNGs.
+    Extract text with PyMuPDF and raster the first N pages (MAX_IMAGES) as PNGs.
     """
     tmpdir_obj = tempfile.TemporaryDirectory(prefix="docsort_pdf_")
     tmpdir = Path(tmpdir_obj.name)
@@ -123,32 +124,30 @@ def ingest_pdf(path: Path) -> Tuple[str, List[str], Callable]:
     try:
         doc = fitz.open(str(path))
         for idx, page in enumerate(doc):
-            # Text sammeln
+            # Collect text
             try:
-                texts.append(page.get_text("text"))  # nativer Text-Extractor
+                texts.append(page.get_text("text"))
             except Exception:
                 pass
-            # Erste N Seiten als PNG rendern
+            # Render first N pages as PNG
             if idx < MAX_IMAGES:
-                pix = page.get_pixmap(
-                    dpi=PDF_RASTER_DPI
-                )  # schnelles, direktes Rasterisieren
+                pix = page.get_pixmap(dpi=PDF_RASTER_DPI)
                 out = tmpdir / f"page_{idx+1}.png"
                 pix.save(str(out))
                 images.append(str(out))
-            # Stop-Heuristik gegen sehr lange PDFs
+            # Early stop for very long PDFs
             if sum(len(t) for t in texts) > MAX_TEXT_CHARS * 1.5:
                 break
     except Exception:
         # Fallback: unstructured
         return ingest_via_unstructured(path)
 
-    # Extrahierte PNG-Seiten skalieren
+    # Resize rasterized pages
     resized_paths, resize_cleanup = resize_images_batch(
         images, max_dimension=MAX_IMAGE_DIMENSION
     )
 
-    # Kombinierte Cleanup-Funktion
+    # Combined cleanup
     def combined_cleanup():
         try:
             resize_cleanup()
@@ -165,7 +164,7 @@ def ingest_pdf(path: Path) -> Tuple[str, List[str], Callable]:
 
 def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
     """
-    Extrahiert pro Folie Titel, Notizen und Bilder (falls vorhanden).
+    Extract per slide title, notes and images (if any).
     """
     try:
         prs = Presentation(str(path))
@@ -180,7 +179,7 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
 
     try:
         for i, slide in enumerate(prs.slides, start=1):
-            # Titel
+            # Title
             title = None
             if slide.shapes.title is not None:
                 try:
@@ -188,7 +187,7 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
                 except Exception:
                     title = None
 
-            # Body-Text (optional, knapp)
+            # Body text (optional)
             body_chunks: List[str] = []
             for shp in slide.shapes:
                 if getattr(shp, "has_text_frame", False):
@@ -200,12 +199,12 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
                         continue
             body = "\n".join(body_chunks).strip()
 
-            # Bilder extrahieren (falls vorhanden und noch Platz für weitere Bilder)
+            # Extract images (if any and within MAX_IMAGES)
             if len(images) < MAX_IMAGES:
                 for shp in slide.shapes:
                     if hasattr(shp, "image") and shp.image is not None:
                         try:
-                            # Bild aus der Form extrahieren
+                            # Extract image blob
                             img_data = shp.image.blob
                             img_ext = shp.image.ext
                             img_filename = f"slide_{i}_image_{len(images)+1}.{img_ext}"
@@ -219,10 +218,10 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
                             if len(images) >= MAX_IMAGES:
                                 break
                         except Exception:
-                            # Bei Fehlern mit der nächsten Form fortfahren
+                            # On error continue with next shape
                             continue
 
-            # Notizen
+            # Notes
             notes_txt = ""
             try:
                 if (
@@ -233,7 +232,7 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
                     if ntf and getattr(ntf, "text", None):
                         notes_txt = ntf.text
             except Exception:
-                # API-Varianz: notfalls ignorieren
+                # API variance: ignore on error
                 pass
 
             pieces.append(
@@ -245,15 +244,15 @@ def ingest_pptx(path: Path) -> Tuple[str, List[str], Callable]:
             if len("\n\n".join(pieces)) > MAX_TEXT_CHARS * 1.5:
                 break
     except Exception:
-        # Bei Fehlern nur Text zurückgeben
+        # On errors, return text only
         pass
 
-    # Extrahierte Bilder skalieren
+    # Resize extracted images
     resized_paths, resize_cleanup = resize_images_batch(
         images, max_dimension=MAX_IMAGE_DIMENSION
     )
 
-    # Kombinierte Cleanup-Funktion
+    # Combined cleanup
     def combined_cleanup():
         try:
             resize_cleanup()
@@ -287,5 +286,5 @@ def ingest_file(path: Path) -> Tuple[str, List[str], callable]:
         return ingest_via_unstructured(path)
     if ext in {".txt"}:
         return ingest_txt(path)
-    # Nicht unterstützte Dateiendungen werden als None zurückgegeben
+    # Unsupported file extensions → return (None, [], noop)
     return None, [], lambda: None

@@ -17,7 +17,7 @@ BASE.mkdir(parents=True, exist_ok=True)
 # -----------------------------
 def _connect():
     con = sqlite3.connect(DB_PATH)
-    # docs: doc_id = SHA256 hex, doc_id_i = u64(erste 8 Bytes)
+    # docs: doc_id = SHA256 hex, doc_id_i = i64 (first 8 bytes)
     con.execute(
         """
     CREATE TABLE IF NOT EXISTS docs(
@@ -58,12 +58,12 @@ def _fts_upsert(
 
 
 # -----------------------------
-# ID-Konvertierung (SHA256 -> i64)
+# ID conversion (SHA256 -> i64)
 # -----------------------------
 def sha256_to_i64(sha_hex: str) -> int:
     """
-    Nimmt die ersten 8 Bytes (16 Hex-Zeichen) der SHA256
-    und mappt sie in einen *signierten* int64.
+    Take the first 8 bytes (16 hex chars) of the SHA256 and map
+    them to a signed int64 (two's complement if needed).
     """
     v = int(sha_hex[:16], 16)  # 0 .. 2^64-1  (unsigned)
     if v >= (1 << 63):  # in signed-Bereich mappen
@@ -72,17 +72,17 @@ def sha256_to_i64(sha_hex: str) -> int:
 
 
 # -----------------------------
-# FAISS Index (IDMap2 over IndexFlatIP)
+# FAISS index (IDMap2 over IndexFlatIP)
 # -----------------------------
 def _open_index(dim: Optional[int] = None):
     if VEC_PATH.exists():
         return faiss.read_index(str(VEC_PATH))
     if dim is None:
-        raise ValueError("Erstaufbau: 'dim' erforderlich.")
-    base = faiss.IndexFlatIP(dim)  # IP + Normalisierung = Cosine
-    return faiss.IndexIDMap2(base)  # IDMap2: stabile 64-bit-IDs
-    # Doku: add_with_ids / remove_ids / reconstruct via IDMap2.  # noqa
-    # https://faiss.ai/cpp_api/file/IndexIDMap_8h.html  |  https://faiss.ai/cpp_api/struct/structfaiss_1_1IndexIDMap2Template.html
+        raise ValueError("Initial build requires 'dim'.")
+    base = faiss.IndexFlatIP(dim)  # IP + normalization = cosine
+    return faiss.IndexIDMap2(base)  # stable 64-bit IDs
+    # Docs: add_with_ids / remove_ids / reconstruct via IDMap2.  # noqa
+    # https://faiss.ai/cpp_api/file/IndexIDMap_8h.html | https://faiss.ai/cpp_api/struct/structfaiss_1_1IndexIDMap2Template.html
 
 
 def _save_index(index) -> None:
@@ -109,7 +109,7 @@ def upsert_document(
     represent_text: str,  # WICHTIG: OHNE Pfad!
     embed_fn,  # callable: List[str] -> np.ndarray (1 x dim), unnormalisiert ok
 ) -> None:
-    """Upsert in SQLite (docs + FTS5) und FAISS (IDMap2)."""
+    """Upsert into SQLite (docs + FTS5) and FAISS (IDMap2)."""
     doc_id_i = sha256_to_i64(doc_id)
 
     # 1) SQLite upsert
@@ -129,29 +129,29 @@ def upsert_document(
         0
     ]
     tags_norm = " ".join(sorted({t for tag in tags for t in de_variants(tag)}))
-    # title ebenfalls expandieren:
+    # also expand title variants for FTS
     title_norm = " ".join(sorted(de_variants(title)))
     _fts_upsert(con, rowid, title_norm, tags_norm, caption or "", excerpt, final_path)
     con.commit()
     con.close()
 
-    # 2) Embedding -> FAISS add_with_ids (vorher remove_ids)
+    # 2) Embedding -> FAISS add_with_ids (remove existing id first)
     vec = embed_fn([represent_text])  # (1, d)
     if vec.shape[0] != 1:
-        raise ValueError("embed_fn muss genau 1 Vektor liefern")
+        raise ValueError("embed_fn must return exactly 1 vector")
     vec = _normalize(vec)
     index = _open_index(dim=vec.shape[1] if not VEC_PATH.exists() else None)
     try:
-        index.remove_ids(np.array([doc_id_i], dtype="int64"))  # gezielt ersetzen
+        index.remove_ids(np.array([doc_id_i], dtype="int64"))
     except Exception:
         pass
-    # add_with_ids: stabile 64-bit IDs
+    # add_with_ids: stable 64-bit IDs
     index.add_with_ids(vec.astype("float32"), np.array([doc_id_i], dtype="int64"))
     _save_index(index)
 
 
 def delete_document(doc_id: str) -> None:
-    """Entferne Dokument aus FAISS + SQLite/FTS5."""
+    """Remove document from FAISS + SQLite/FTS5."""
     con = _connect()
     row = con.execute(
         "SELECT doc_id_i, rowid FROM docs WHERE doc_id=?", (doc_id,)
@@ -172,7 +172,7 @@ def delete_document(doc_id: str) -> None:
 
 
 def update_path_only(doc_id: str, new_path: str) -> None:
-    """Nur Pfad in SQLite/FTS5 aktualisieren (kein Re-Embedding)."""
+    """Update only path in SQLite/FTS5 (no re-embedding)."""
     con = _connect()
     con.execute("UPDATE docs SET path=? WHERE doc_id=?", (new_path, doc_id))
     rowid, title, tags, caption, excerpt = con.execute(

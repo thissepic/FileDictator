@@ -71,27 +71,26 @@ def classify_item(
     keep_alive: str | int | None = "2h",
     dry_run: bool = False,
 ) -> Path:
-    # 1) Ingest (Text + optionale Bilder)
+    # 1) Ingest (text + optional images)
     excerpt, image_paths, cleanup = ingest_file(src_path)
     try:
-        # 2) Prompt bauen (mit optionalem Dokumentauszug)
+        # 2) Build prompt (with optional excerpt)
         user_prompt = build_user_prompt(src_path.name, allowed_paths, excerpt or None)
         log_path = (
             Path("./logs/dryrun.jsonl") if dry_run else Path("./logs/processed.jsonl")
         )
 
-        # 2) Provider-spezifischer Call (beide ohne History!)
+        # 2) Provider-specific call (both without history)
         if provider == "openai":
-            # Pydantic-Modell dynamisch aus erlaubten Pfaden bauen
+            # Dynamically build Pydantic model from allowed paths
             DocSortModel = build_docsort_model(allowed_paths)
             parsed, meta = responses_parse_structured(
-                model=model,  # z. B. gpt-4o-mini / gpt-5
+                model=model,
                 system_prompt=SYSTEM_PROMPT,
                 user_text=user_prompt,
-                image_paths=image_paths or None,  # als Base64-Data-URL eingebettet
+                image_paths=image_paths or None,
                 pyd_model=DocSortModel,
             )
-            # parsed ist eine Instanz von DocSortModel
             target_rel = parsed.target_path
             confidence = float(parsed.confidence)
             reason = parsed.reason
@@ -102,7 +101,7 @@ def classify_item(
         else:
             t0 = time.perf_counter()
             raw_json, meta = chat_structured(
-                model=model,  # z. B. "gemma3:27b"
+                model=model,
                 system=SYSTEM_PROMPT,
                 user_content=user_prompt,
                 image_paths=image_paths or None,
@@ -128,13 +127,11 @@ def classify_item(
         if dry_run:
             planned = tgt_dir / src_path.name
 
-            # Im Dry-Run verwenden wir den Quellpfad für das Embedding
-            # aber den geplanten Zielpfad für die Metadaten
-            # final_rel = str(planned.relative_to(lib_root))
+            # In dry-run: embed source path, but use planned target path in metadata
             dst_abs = canon(planned)
             rep_text = _build_representation(
                 title=dst_abs.name,
-                final_rel_path="",  # <-- NICHT einbetten (oder _build_representation anpassen)
+                final_rel_path="",  # do not embed final path
                 tags=tags,
                 caption=caption,
                 excerpt=excerpt or "",
@@ -143,7 +140,7 @@ def classify_item(
             doc_id = file_sha256(src_path)
             upsert_document(
                 doc_id=doc_id,
-                final_path=str(dst_abs),  # geplanter Zielpfad für Metadaten
+                final_path=str(dst_abs),
                 title=dst_abs.name,
                 tags=tags,
                 caption=caption,
@@ -172,19 +169,18 @@ def classify_item(
 
         dst = move_or_copy(src_path, tgt_dir, action)  # type: ignore[arg-type]
 
-        # direkt indizieren
-        # final_rel = str(dst.relative_to(lib_root))
+        # direct indexing
         dst_abs = canon(dst)
-        # Repräsentation OHNE Pfad:
+        # Representation without path:
         rep_text = _build_representation(
             title=dst_abs.name,
-            final_rel_path="",  # <-- NICHT einbetten (oder _build_representation anpassen)
+            final_rel_path="",
             tags=tags,
             caption=caption,
             excerpt=excerpt or "",
         )
 
-        doc_id = file_sha256(dst_abs)  # SHA256 über Inhalt (hast du bereits)
+        doc_id = file_sha256(dst_abs)
         upsert_document(
             doc_id=doc_id,
             final_path=str(dst_abs),

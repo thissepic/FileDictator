@@ -1,4 +1,4 @@
-# watcher.py  — robuste Move-Erkennung + Debounce
+# watcher.py — robust move detection + debounce
 from __future__ import annotations
 from pathlib import Path
 import time, hashlib, argparse, threading
@@ -52,8 +52,8 @@ def db_has_doc_id(doc_id: str) -> bool:
 
 def wait_file_ready(p: Path, timeout=3.0, interval=0.1) -> bool:
     """
-    Warten, bis Datei 'stabil' ist: Größe bleibt zwischen zwei Checks gleich
-    (vermeidet Hash/Read bei noch laufenden Moves/Kopien).
+    Wait until file is 'stable': size unchanged between checks.
+    Avoid hashing/reading while a move/copy is still in progress.
     """
     end = time.time() + timeout
     prev = (-1, -1.0)
@@ -70,7 +70,7 @@ def wait_file_ready(p: Path, timeout=3.0, interval=0.1) -> bool:
     return p.exists()
 
 
-# --------- Event-Handler ----------
+# --------- Event handler ----------
 class Handler(FileSystemEventHandler):
     def __init__(self, libroot: Path):
         super().__init__()
@@ -78,7 +78,7 @@ class Handler(FileSystemEventHandler):
         self._recent = {}  # path -> expiry_ts
         self._lock = threading.Lock()
 
-    # --- Debounce-Helfer ---
+    # --- Debounce helpers ---
     def _mark_recent(self, path: str, ttl=2.0):
         with self._lock:
             self._recent[path] = time.time() + ttl
@@ -96,7 +96,7 @@ class Handler(FileSystemEventHandler):
     def _index_new(self, p: Path):
         excerpt, _images, cleanup = ingest_file(p)
         try:
-            rep = f"title: {p.name}\ntags: \ncaption: \nexcerpt:\n{excerpt or ''}"  # OHNE path
+            rep = f"title: {p.name}\ntags: \ncaption: \nexcerpt:\n{excerpt or ''}"  # without path
             doc_id = file_sha256(p)
             upsert_document(
                 doc_id=doc_id,
@@ -131,16 +131,16 @@ class Handler(FileSystemEventHandler):
             try:
                 update_path_only(h, str(p))
                 print(f"[move-detected@created] path -> {p}")
-                # Markiere als recent, um Doppelfeuer zu dämpfen
+                # mark as recent to suppress duplicate events
                 self._mark_recent(str(p))
                 return
             except Exception as e:
                 print(f"[warn] update_path_only failed, fallback to index: {e}")
 
-        # sonst wirklich neu
+        # otherwise: really new file
         self._index_new(p)
 
-    # --- Event Callbacks ---
+    # --- Event callbacks ---
     def on_moved(self, event: DirMovedEvent | FileMovedEvent):
         if event.is_directory:
             return
@@ -149,16 +149,16 @@ class Handler(FileSystemEventHandler):
         if not is_supported_file(dst):
             return
 
-        # Primärweg: via alter Pfad doc_id bestimmen
+        # primary path: try doc_id via old path
         old_doc = db_get_doc_id_by_path(str(src))
         if old_doc:
-            # Nur Pfad updaten (Move)
+            # only update path (move)
             update_path_only(old_doc, str(dst))
             self._mark_recent(str(dst))
             print(f"[move] {src.name} -> {dst}")
             return
 
-        # Fallback: created-as-move
+        # fallback: created-as-move
         self._treat_created_as_move_or_new(dst)
 
     def on_created(self, event: DirCreatedEvent | FileCreatedEvent):
@@ -168,18 +168,18 @@ class Handler(FileSystemEventHandler):
         if not is_supported_file(p):
             return
 
-        # Wenn gerade durch on_moved abgehandelt, ignorieren
+        # ignore if already handled via on_moved
         if self._is_recent(str(p)):
             # already handled as move
             return
 
-        # created kann ein Move aus anderem Verzeichnis/Volume sein
+        # created can actually be a move from another dir/volume
         self._treat_created_as_move_or_new(p)
 
     def on_deleted(self, event: DirDeletedEvent | FileDeletedEvent):
         if event.is_directory:
             return
-        # doc_id via DB über alten Pfad
+        # doc_id via DB by old path
         con = sqlite3.connect(str(DB_PATH))
         row = con.execute(
             "SELECT doc_id FROM docs WHERE path=?", (str(canon(Path(event.src_path))),)
@@ -198,7 +198,7 @@ class Handler(FileSystemEventHandler):
         if not wait_file_ready(p):
             return
 
-        # Inhalt geändert? -> Re-embed (doc_id = content-hash ändert sich!)
+        # content changed? -> re-embed (doc_id = content hash changes)
         new_id = file_sha256(p)
         con = sqlite3.connect(str(DB_PATH))
         row = con.execute("SELECT doc_id FROM docs WHERE path=?", (str(p),)).fetchone()
@@ -211,25 +211,25 @@ class Handler(FileSystemEventHandler):
 
 def main():
     ap = argparse.ArgumentParser(
-        description="Watch LIBROOT und spiegele Änderungen in FAISS + FTS5"
+        description="Watch LIBROOT and mirror changes to FAISS + FTS5"
     )
     ap.add_argument("--libroot", required=True, type=Path)
     ap.add_argument(
         "--polling",
         action="store_true",
-        help="PollingObserver (z. B. für Netzlaufwerke)",
+        help="Use PollingObserver (e.g., for network drives)",
     )
     args = ap.parse_args()
 
     libroot = args.libroot.expanduser().resolve()
     if not libroot.exists() or not libroot.is_dir():
-        raise SystemExit(f"LIBROOT nicht gefunden: {libroot}")
+        raise SystemExit(f"LIBROOT not found: {libroot}")
 
     obs = PollingObserver() if args.polling else Observer()
     obs.schedule(Handler(libroot), str(libroot), recursive=True)
     obs.start()
     print(
-        f"[watch] {libroot}  ({'polling' if args.polling else 'native'})  –  Ctrl+C zum Beenden"
+        f"[watch] {libroot}  ({'polling' if args.polling else 'native'})  –  Ctrl+C to stop"
     )
     try:
         while True:
