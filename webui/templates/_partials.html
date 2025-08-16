@@ -1,0 +1,46 @@
+{% if sort_error %}
+<div class="logline err">{{ sort_error }}</div>
+{% endif %} {% if sort_logs %}
+<div class="mono">
+    {% for line in sort_logs %}
+    <div class="logline {{ 'err' if '[ERROR]' in line else 'ok' }}">{{ line }}</div>
+    {% endfor %}
+    <div class="logline ok">Verarbeitet: {{ sort_count }}</div>
+</div>
+{% endif %} {% if search_error %}
+<div class="error">{{ search_error }}</div>
+{% endif %} {% if search_results %}
+<div class="results">
+    {% for r in search_results %}
+    <div class="result-item">
+        <!-- Kopfzeile: Titel links, Score rechts -->
+        <div class="result-title" title="{{ r.title }}">{{ r.title }}</div>
+        <div class="score">rrf: {{ "%.4f"|format(r.rrf_score or 0) }}</div>
+
+        <!-- Zweite Zeile: komprimierter Pfad -->
+        <div class="result-path" title="{{ r.path }}">
+            <a class="result-path" href="{{ ('file://' + r.path) if r.path.startswith('/') else 'file:///' + r.path }}"
+                >{{ r.path }}</a
+            >
+        </div>
+
+        <!-- Meta: Tags + Caption (inline) -->
+        <div class="result-meta">
+            {% if r.tags %} {% for t in r.tags %}
+            <span class="tag">{{ t }}</span>
+            {% endfor %} {% endif %} {% if r.caption %}<span class="caption">— {{ r.caption }}</span>{% endif %}
+        </div>
+
+        <!-- Ausklappbare Details (Snippet) -->
+        {% if r.excerpt %}
+        <details>
+            <summary>Details anzeigen</summary>
+            <div class="snippet">
+                {{ r.excerpt[:600].replace('\n',' ') }}{% if r.excerpt|length > 600 %}…{% endif %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

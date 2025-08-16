@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>DocSort • Web UI</h1>
+  <div class="grid two">
+    <!-- Dateien sortieren -->
+    <div class="card">
+      <h2>🗂️ Dateien sortieren</h2>
+      <form hx-post="/sort/run" hx-target="#sort-result" hx-swap="innerHTML">
+        <label>INBOX (Quellordner)</label>
+        <input name="inbox" placeholder="/Pfad/zu/INBOX" required />
+
+        <label>LIBROOT (Ziel-Root)</label>
+        <input name="libroot" placeholder="/Pfad/zu/LIBROOT" required />
+
+        <label>Provider</label>
+        <select name="provider">
+          <option value="ollama" {{ 'selected' if cfg.PROVIDER_DEFAULT == 'ollama' else '' }}>Lokal</option>
+          <option value="openai" {{ 'selected' if cfg.PROVIDER_DEFAULT == 'openai' else '' }}>OpenAI</option>
+        </select>
+
+        <div class="hint" style="margin-top:8px">
+          <div><strong>Feste Einstellungen:</strong></div>
+          <div>Ollama-Modell: <code class="mono">{{ cfg.MODEL_OLLAMA }}</code></div>
+          <div>OpenAI-Modell: <code class="mono">{{ cfg.MODEL_OPENAI }}</code></div>
+          <div>min_confidence: <code class="mono">{{ cfg.MIN_CONFIDENCE }}</code>,
+               keep_alive: <code class="mono">{{ cfg.KEEP_ALIVE }}</code></div>
+          <div>Aktion: <code class="mono">{{ cfg.ACTION_DEFAULT }}</code>,
+               dry_run: <code class="mono">{{ cfg.DRY_RUN_DEFAULT }}</code></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="btn" type="submit">Sortierung starten</button>
+        </div>
+      </form>
+      <div id="sort-result" style="margin-top:14px"></div>
+    </div>
+
+    <!-- Dateien finden -->
+    <div class="card">
+      <h2>🔎 Dateien finden</h2>
+      <form hx-post="/search/run" hx-target="#search-result" hx-swap="innerHTML">
+        <label>Query</label>
+        <input name="q" placeholder="z.B. mathe arbeitsblatt dreiecke" required />
+
+        <label>Top-k</label>
+        <input name="k" type="number" value="20" />
+
+        <div class="hint" style="margin-top:8px">
+          Embedding-Modell (fest): <code class="mono">{{ cfg.EMB_MODEL }}</code>
+        </div>
+
+        <div style="margin-top:12px">
+          <button class="btn" type="submit">Suchen</button>
+        </div>
+      </form>
+      <div id="search-result" style="margin-top:14px"></div>
+    </div>
+  </div>
+{% endblock %}

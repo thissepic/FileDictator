@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="de" hx-history="false">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>DocSort • Web UI</title>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+        <style>
+            :root {
+                --bg: #0b1220;
+                --card: #121a2a;
+                --fg: #e8eefb;
+                --muted: #a7b0c0;
+                --acc: #66d9ef;
+                --ok: #7ee787;
+                --err: #ff7b72;
+                --chip: #1a2336;
+                --chip-b: #2a3754;
+            }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--fg);
+                font: 14px/1.45 system-ui, Segoe UI, Roboto, Ubuntu;
+            }
+            .wrap {
+                max-width: 1100px;
+                margin: 24px auto;
+                padding: 0 16px;
+            }
+            .grid {
+                display: grid;
+                gap: 16px;
+            }
+            .two {
+                grid-template-columns: 1fr;
+            }
+            @media (min-width: 960px) {
+                .two {
+                    grid-template-columns: 1fr 1fr;
+                }
+            }
+            .card {
+                background: var(--card);
+                border-radius: 12px;
+                padding: 14px 16px;
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+                max-width: 500px;
+            }
+            h1 {
+                font-size: 20px;
+                margin: 0 0 8px;
+            }
+            h2 {
+                font-size: 16px;
+                margin: 0 0 10px;
+            }
+            label {
+                display: block;
+                margin: 6px 0 3px;
+                color: var(--muted);
+                font-size: 12px;
+            }
+            input,
+            select {
+                width: 100%;
+                padding: 8px 10px;
+                border-radius: 10px;
+                border: 1px solid #253047;
+                background: #0e1524;
+                color: var(--fg);
+            }
+            .row {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .btn {
+                background: #1f2a44;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 10px;
+                color: var(--fg);
+                cursor: pointer;
+            }
+            .btn:hover {
+                background: #243152;
+            }
+            .hint {
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .mono {
+                font-family: ui-monospace, Menlo, Consolas, monospace;
+                font-size: 12px;
+            }
+
+            /* Ergebnisse kompakt (Material: zwei-/dreizeilige Listen, höhere Dichte) */
+            .results {
+                display: block;
+            }
+            .result-item {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                gap: 6px;
+                padding: 8px 10px;
+                border-bottom: 1px solid #1b2437;
+            }
+            .result-item:first-child {
+                border-top: 1px solid #1b2437;
+            }
+            .result-title {
+                font-size: 14px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .result-path {
+                color: var(--muted);
+                font-size: 12px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .result-meta {
+                grid-column: 1/-1;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                align-items: center;
+            }
+            .tag {
+                display: inline-block;
+                background: var(--chip);
+                border: 1px solid var(--chip-b);
+                color: #c3cbe0;
+                padding: 1px 6px;
+                border-radius: 7px;
+                font-size: 11px;
+            }
+            .score {
+                margin-left: auto;
+                font-size: 11px;
+                color: var(--muted);
+            }
+            .caption {
+                font-size: 12px;
+                color: #bfc7db;
+            }
+            .snippet {
+                font-size: 12px;
+                color: #a9b4c9;
+            }
+            /* zugängliche, kompakte Details (WAI Disclosure) */
+            details {
+                grid-column: 1/-1;
+            }
+            summary {
+                cursor: pointer;
+                color: var(--acc);
+                font-size: 12px;
+                outline: none;
+            }
+            summary::-webkit-details-marker {
+                display: none;
+            }
+            .error {
+                color: var(--err);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="wrap">
+            {% block content %}{% endblock %}
+            <p class="hint">
+                Tipps: Templates & Form-Handling in FastAPI, htmx-Dokumentation, FAISS & FTS5 siehe Dokus.
+            </p>
+        </div>
+    </body>
+</html>
